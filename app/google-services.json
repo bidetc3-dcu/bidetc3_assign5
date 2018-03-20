@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "147215438761",
+    "firebase_url": "https://liondesk-665c0.firebaseio.com",
+    "project_id": "liondesk-665c0",
+    "storage_bucket": "liondesk-665c0.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:147215438761:android:3f8d00ad38ae16e1",
+        "android_client_info": {
+          "package_name": "com.example.android.liondesk"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "147215438761-95708joroav3inf33lkk65r243flm1k6.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.android.liondesk",
+            "certificate_hash": "0adedf1a63a03fb86c6279e63ee79e2ac083dbdf"
+          }
+        },
+        {
+          "client_id": "147215438761-vq6it0c0dcmm9jkv2oh6v0csha8ccp6r.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDi0qdxDTHOYNV7gJs4ivoTK-93s1pdW9M"
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 1
+        },
+        "appinvite_service": {
+          "status": 2,
+          "other_platform_oauth_client": [
+            {
+              "client_id": "147215438761-vq6it0c0dcmm9jkv2oh6v0csha8ccp6r.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        },
+        "ads_service": {
+          "status": 2
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
