@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!--
+  Citation: this code is adapted from
+  \coursera-android-master\Examples\DataManagementPreferenceFragment, downloaded from
+  http://www.cs.dartmouth.edu/~campbell/cs65/code/fragmentpreference.zip
+  -->
+
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    android:key="@+id/pref_screen">
+
+        <PreferenceCategory android:title="@string/account_settings">
+
+            <EditTextPreference
+                android:key="email"
+                android:dialogMessage="@string/preference_dialog_message_email"
+                android:dialogTitle="@string/preference_dialog_title_edit_email"
+                android:negativeButtonText="@string/edit_preference_cancel"
+                android:positiveButtonText="@string/edit_preference_submit"
+                android:summary="@string/summary_email"
+                android:title="@string/title_email" />
+
+            <EditTextPreference
+                android:key="password"
+                android:dialogMessage="@string/preference_dialog_message_password"
+                android:dialogTitle="@string/preference_dialog_title_edit_password"
+                android:negativeButtonText="@string/edit_preference_cancel"
+                android:positiveButtonText="@string/edit_preference_submit"
+                android:title="@string/title_password" />
+
+            <CheckBoxPreference
+                android:key="checkbox_preference"
+                android:title="@string/email_confirmation" />
+
+        </PreferenceCategory>
+
+</PreferenceScreen>
