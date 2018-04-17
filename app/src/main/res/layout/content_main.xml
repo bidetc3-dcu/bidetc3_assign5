@@ -14,11 +14,14 @@
         android:id="@+id/date_holder"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_alignParentStart="false"
         android:layout_alignParentTop="true"
         android:drawableStart="@drawable/ic_event_black_36dp"
+        android:gravity="center_vertical"
+        android:textAlignment="textStart"
         android:textSize="16sp"
         android:textStyle="bold"
-        android:gravity="center_vertical"/>
+        tools:padding="@dimen/default_padding" />
 
     <android.support.v7.widget.RecyclerView
         android:id="@+id/recycler_view"

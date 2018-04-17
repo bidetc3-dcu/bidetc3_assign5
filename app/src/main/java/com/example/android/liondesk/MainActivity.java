@@ -54,7 +54,6 @@ public class MainActivity extends AppCompatActivity {
     private static final int RC_SIGN_IN = 1;
     public static final String ANONYMOUS = "anonymous";
 
-
     private RecyclerView recyclerView;
     private HotDesksAdapter mAdapter;
     private List<HotDesk> hotDeskList;
@@ -73,7 +72,7 @@ public class MainActivity extends AppCompatActivity {
     //only access a portion of the database, here "Bookings" and "Users"
     private DatabaseReference mBookingsDatabaseReference; // WARNING! changed Message to Bookings
     private DatabaseReference mUsersDatabaseReference;
-    //todo add firebase real time database
+    private DatabaseReference mHotDesksDatabaseReference;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -89,6 +88,8 @@ public class MainActivity extends AppCompatActivity {
         mBookingsDatabaseReference = mFirebaseDatabase.getReference().child("bookings");
         // get the root node (getReference) then get the child "users" portion
         mUsersDatabaseReference = mFirebaseDatabase.getReference().child("users");
+        // get the root node (getReference) then get the child "hotdesks" portion
+        mHotDesksDatabaseReference = mFirebaseDatabase.getReference().child("hotdesks");
         // Initialize Firebase Auth
         mFirebaseAuth = FirebaseAuth.getInstance();
 
@@ -160,7 +161,7 @@ public class MainActivity extends AppCompatActivity {
 
         // prepareDesks() – Adds dummy hotdesk data required for the recycler view.
         //TODO remove once data is coming from database
-        prepareDesks();
+    //    prepareDesks();
 
         mAuthStateListener = new FirebaseAuth.AuthStateListener() {
             @Override
@@ -187,15 +188,15 @@ public class MainActivity extends AppCompatActivity {
             }
         };
 
-        // Read from the database
-        mBookingsDatabaseReference.addValueEventListener(new ValueEventListener() {
+        // Read from the database reference Hotdesks
+        mHotDesksDatabaseReference.addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
                 // This method is called once with the initial value and again
                 // whenever data at this location is updated.
                // Object value = dataSnapshot.getValue();
               //  Log.d(TAG, "Value is: " + value);
-                getBookedDeskIDs(dataSnapshot);
+                getHotDesks(dataSnapshot);
             }
 
             @Override
@@ -204,6 +205,24 @@ public class MainActivity extends AppCompatActivity {
                 Log.w(TAG, "Failed to read value.", error.toException());
             }
         });
+
+        // Read from the database reference Hotdesks
+    //    mBookingsDatabaseReference.addValueEventListener(new ValueEventListener() {
+   //         @Override
+    //        public void onDataChange(DataSnapshot dataSnapshot) {
+                // This method is called once with the initial value and again
+                // whenever data at this location is updated.
+                // Object value = dataSnapshot.getValue();
+                //  Log.d(TAG, "Value is: " + value);
+    //            getBookedDeskIDs(dataSnapshot);
+    //        }
+
+    //        @Override
+    //        public void onCancelled(DatabaseError error) {
+                // Failed to read value
+    //            Log.w(TAG, "Failed to read value.", error.toException());
+   //         }
+    //    });
 
     }
 
@@ -324,8 +343,10 @@ public class MainActivity extends AppCompatActivity {
 
     // from https://codingwithmitch.com/android/32/
     // Get the IDs of the booked desks from the database
+    /*
     private void getBookedDeskIDs(DataSnapshot dataSnapshot) {
         if (dataSnapshot != null) {
+
             for (DataSnapshot ds : dataSnapshot.getChildren()) {
                 HotDesk hDesk = new HotDesk();
                 hDesk.setID(ds.child(getDisplayedDate()).getValue(HotDesk.class).getID()); //set the ID
@@ -340,6 +361,8 @@ public class MainActivity extends AppCompatActivity {
 
         }
     }
+*/
+    //////
 
     /* from https://codingwithmitch.com/android/32/
     private void showData(DataSnapshot dataSnapshot) {
@@ -369,7 +392,7 @@ public class MainActivity extends AppCompatActivity {
      * Adding a few hotdesks for testing
      * TODO remove once data is coming from database
     */
-    private void prepareDesks() {
+ /*   private void prepareDesks() {
         int[] pictures = new int[]{
                 R.drawable.hotdesk1,
                 R.drawable.hotdesk2_bigger,
@@ -418,6 +441,48 @@ public class MainActivity extends AppCompatActivity {
 
         mAdapter.notifyDataSetChanged();
     }
+    */
 
+    //todo display desks from hotdesk dbref
+    // from https://codingwithmitch.com/android/32/
+    // Add hotdesk object to the list which is added to the adapter
+    private void getHotDesks(DataSnapshot dataSnapshot) {
+         if (dataSnapshot != null) {
+
+            for (DataSnapshot ds : dataSnapshot.getChildren()) {
+                HotDesk hDesk = new HotDesk();
+                hDesk.setID(ds.getKey()); // set the ID
+                // get the floor value as a string
+                String floor = ds.child("floor").getValue(String.class);
+                //set the floor# as an integer
+                hDesk.setFloorNumber(Integer.valueOf(floor));
+                // for testing the value todo remove when robust
+                Toast.makeText(getApplicationContext(), "Floor : "+ floor,
+                        Toast.LENGTH_SHORT).show();
+
+                // get the thumbnail value as a string
+                String thumbnail = ds.child("picture").getValue(String.class);
+                // set the thumbnail reference as an integer
+                // solution to get from a string to an int from
+                // https://stackoverflow.com/questions/4427608/android-getting-resource-id-from-string#19093447
+                int thumbnailIdentifier = getResources()
+                        .getIdentifier(thumbnail, "drawable", getPackageName());
+                hDesk.setThumbnail(thumbnailIdentifier);
+
+                // for testing the value todo remove when robust
+                Toast.makeText(getApplicationContext(), "Thumbnail : "+ thumbnail,
+                        Toast.LENGTH_SHORT).show();
+
+              //  hDesk.setFloorNumber(0);
+               // hDesk.setFloorNumber(Integer.valueOf(floor));
+             //   hDesk.setThumbnail(ds.child().getValue(HotDesk.class).getThumbnail()); //set the pic
+               // hDesk.setThumbnail(R.drawable.hotdesk1); // dummy as I dont know how to get R.drawable.hotdesk1 at the moment
+                hDesk.setStatus("FREE");
+
+                hotDeskList.add(hDesk);
+            }
+            mAdapter.notifyDataSetChanged();
+        }
+    }
 
 }
