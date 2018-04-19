@@ -16,9 +16,10 @@
         android:layout_height="wrap_content"
         android:layout_alignParentStart="false"
         android:layout_alignParentTop="true"
+        android:layout_centerInParent="true"
+        android:layout_gravity="center_horizontal"
         android:drawableStart="@drawable/ic_event_black_36dp"
         android:gravity="center_vertical"
-        android:textAlignment="textStart"
         android:textSize="16sp"
         android:textStyle="bold"
         tools:padding="@dimen/default_padding" />

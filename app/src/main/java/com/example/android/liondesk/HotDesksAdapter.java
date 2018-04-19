@@ -8,9 +8,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
-
-import com.bumptech.glide.Glide;
-
 import java.util.List;
 
 /**
@@ -115,12 +112,8 @@ public class HotDesksAdapter extends RecyclerView.Adapter<HotDesksAdapter.MyView
         holder.mDeskID.setText(hotdesk.getID());
         holder.mFloor.setText("# " + hotdesk.getFloorNumber());
         holder.mStatus.setText(hotdesk.getStatus());
-
+        holder.mDeskThumbnail.setImageResource(hotdesk.getThumbnail());
         holder.mCard.setSelected(position == lastCheckedPosition);
-
-        // loading the hotdesk picture using Glide library
-        Glide.with(mContext).load(hotdesk.getThumbnail()).into(holder.mDeskThumbnail);
-
     }
 
     //Not sure the use of that, can I delete it?

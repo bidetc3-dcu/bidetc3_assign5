@@ -44,12 +44,10 @@ public class DatePickerFragment extends DialogFragment
         CharSequence output = DateFormat.format("MMM dd, yyyy", cal);
       ((TextView) getActivity().findViewById(R.id.date_holder)).setText(output);
 
-        Log.v(TAG, "The date is set inside the onDateSet method."); // todo remove when testing finished
-
         Toast.makeText(getContext(), "The date has been picked by the user.",
                 Toast.LENGTH_SHORT).show();
         //todo send a query to database to check desk availability on that date
-
+        ((MainActivity)getActivity()).getHotDesks();
     }
 }
 
