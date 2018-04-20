@@ -69,8 +69,6 @@ public class MainActivity extends AppCompatActivity {
     private DatabaseReference mBookingsDatabaseReference;
     private DatabaseReference mUsersDatabaseReference;  // you can remove this if you dont implement user booking screens
     private DatabaseReference mHotDesksDatabaseReference;
-    private ValueEventListener mBookingsListener;
-    private ValueEventListener mHotdeskListener;
 
 
     @Override
@@ -132,7 +130,7 @@ public class MainActivity extends AppCompatActivity {
                         .child(mSelectedDeskID).child(mUsername).setValue("true");
                 //do a code that sends a confirmation (intent with something?)
                 //so that the confirmation snackbar get it
-                //todo on results - display confirmation snackbar
+                //todo on results - display confirmation snackbar + update the list of desks displayed
             }
 
         });
@@ -168,12 +166,12 @@ public class MainActivity extends AppCompatActivity {
                 FirebaseUser user = mFirebaseAuth.getCurrentUser();
 
                 if (user != null) {
-
-                    onSignedInInitialize();
+                    onSignedInInitialize(user.getDisplayName());
 
                 } else {
                     // Not signed in, shows the Sign In UI
-                    onSignedOutCleanup();
+                    Toast.makeText(MainActivity.this, "The user is NULL!)", Toast.LENGTH_SHORT).show();
+
                     startActivityForResult(
                             AuthUI.getInstance()
                                     .createSignInIntentBuilder()
@@ -181,10 +179,13 @@ public class MainActivity extends AppCompatActivity {
                                             new AuthUI.IdpConfig.GoogleBuilder().build()))
                                     .build(),
                             RC_SIGN_IN);
-
                 }
             }
         };
+
+        if (mAuthStateListener != null) {
+            mFirebaseAuth.addAuthStateListener(mAuthStateListener);
+        }
     }
 
 
@@ -227,28 +228,19 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
-    public void onPause() {
-        super.onPause();
+    public void onDestroy()
+    {
+        super.onDestroy();
         if (mAuthStateListener != null) {
             mFirebaseAuth.removeAuthStateListener(mAuthStateListener);
         }
-         detachDatabaseReadListener(mBookingsDatabaseReference, mBookingsListener);
-         detachDatabaseReadListener(mHotDesksDatabaseReference, mHotdeskListener);
-        mHotDeskList.clear();
 
     }
-
-    @Override
-    public void onResume() {
-        super.onResume();
-        mFirebaseAuth.addAuthStateListener(mAuthStateListener);
-        getHotDesks();
-    }
-
     // Methods related to authentication flow
 
-    private void onSignedInInitialize() {
+    private void onSignedInInitialize(String username) {
 
+        mUsername = username;
         //todo add the code about attach Database readlistener - see udacity Saturday 35
         // If the user email is not null and the email preference is not already set
         if ((mFirebaseAuth.getCurrentUser().getEmail() != null)
@@ -261,25 +253,17 @@ public class MainActivity extends AppCompatActivity {
         getHotDesks();
     }
 
-    private void onSignedOutCleanup() {
-        //todo add the code about detach Database readlistener - see udacity Saturday 35
-        mHotDeskList.clear();
-        detachDatabaseReadListener(mHotDesksDatabaseReference, mHotdeskListener);
-        detachDatabaseReadListener(mBookingsDatabaseReference, mBookingsListener);
-
-        //todo do the same in onPause()
-    }
 
     // code adapted from https://github.com/udacity/and-nd-firebase/compare/
     // 1.04-firebase-auth-firebaseui-signin...1.05-firebase-auth-signin-signout-setup
-
+/*
     private void detachDatabaseReadListener(DatabaseReference databaseReference, ValueEventListener databaseListener) {
         if (databaseListener != null) {
             databaseReference.removeEventListener(databaseListener);
             databaseListener = null;
         }
     }
-
+*/
     // Create the date Picker fragment and display the Date Picker
     // code copied from https://developer.android.com/guide/topics/ui/controls/pickers.html
 
@@ -317,6 +301,7 @@ public class MainActivity extends AppCompatActivity {
 
     // Compose the list of hotdesks which are not booked on a given day and which is added to the adapter
     public void getHotDesks() {
+        //adapterClear();
 
         fillHotDeskList();
         // If there is a booking at the selected date (bookings/date)
@@ -324,87 +309,104 @@ public class MainActivity extends AppCompatActivity {
 
             // Read data from the database, at the path Bookings / child
             // where the key = the date selected in the date picker
-          //  if (mBookingsListener == null) {
 
-                mBookingsListener = mBookingsDatabaseReference.child(mDateDisplay.getText().toString())
-                        .addValueEventListener(new ValueEventListener() {
+            mBookingsDatabaseReference.child(mDateDisplay.getText().toString())
+                    .addListenerForSingleValueEvent(new ValueEventListener() {
 
-                            @Override
-                            public void onDataChange(DataSnapshot dataSnapshot) {
-                                // if there are desks booked at this date
-                                if (dataSnapshot.hasChildren()) {
-                                    // remove the desks already booked from the list which will be displayed
-                                    for (DataSnapshot ds : dataSnapshot.getChildren()) {
-                                        String deskID = ds.getKey();
-                                        // Code to remove an object from the list is taken from
-                                        //https://stackoverflow.com/questions/10502164/
-                                        // how-do-i-remove-an-object-from-an-arraylist-in-java#10502214
-                                        Iterator<HotDesk> it = mHotDeskList.iterator();
-                                        while (it.hasNext()) {
-                                            HotDesk hotDesk = it.next();
-                                            if (hotDesk.getID().equals(deskID)) {
-                                                it.remove();
-                                            }
+                        @Override
+                        public void onDataChange(DataSnapshot dataSnapshot) {
+                            // if there are desks booked at this date
+                            if (dataSnapshot.hasChildren()) {
+                                // remove the desks already booked from the list which will be displayed
+                                for (DataSnapshot ds : dataSnapshot.getChildren()) {
+                                    String deskID = ds.getKey();
+                                    // Code to remove an object from the list is taken from
+                                    //https://stackoverflow.com/questions/10502164/
+                                    // how-do-i-remove-an-object-from-an-arraylist-in-java#10502214
+                                    Iterator<HotDesk> it = mHotDeskList.iterator();
+                                    while (it.hasNext()) {
+                                        HotDesk hotDesk = it.next();
+                                        if (hotDesk.getID().equals(deskID)) {
+                                            it.remove();
+                                            mAdapter.notifyDataSetChanged();
+
                                         }
                                     }
                                 }
                             }
+                        }
 
-                            @Override
-                            public void onCancelled(DatabaseError error) {
-                                //   Failed to read value
-                                Log.w(TAG, "Failed to read value.", error.toException());
-                            }
-                        });
-            detachDatabaseReadListener(mBookingsDatabaseReference, mBookingsListener);
-        //    }
+                        @Override
+                        public void onCancelled(DatabaseError error) {
+                            //   Failed to read value
+                            Log.w(TAG, "Failed to read value.", error.toException());
+                        }
+                    });
         }
-        mAdapter.notifyDataSetChanged();
-        Toast.makeText(this, "Get HOT HOT Desks!", Toast.LENGTH_SHORT).show();
     }
 
     // from https://codingwithmitch.com/android/32/
     // Create and return the full list of hotdesks
+
+    // recyclerview update comes from
+    // https://stackoverflow.com/questions/31367599/how-to-update-recyclerview-adapter-data#48959184
     private void fillHotDeskList() {
 
-     //   if (mHotdeskListener == null){
-            mHotdeskListener = mHotDesksDatabaseReference.addValueEventListener(new ValueEventListener() {
-                @Override
-                public void onDataChange(DataSnapshot dataSnapshot) {
-                    if (dataSnapshot != null) {
+        mHotDesksDatabaseReference.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                if (dataSnapshot != null) {
+                    // clear old list
+                    mHotDeskList.clear();
+                    // add new list
+                    final ArrayList<HotDesk> newList = new ArrayList<>();
 
-                        for (DataSnapshot ds : dataSnapshot.getChildren()) {
-                            HotDesk hDesk = new HotDesk();
-                            hDesk.setID(ds.getKey()); // set the ID
-                            // get the floor value as a string
-                            String floor = ds.child("floor").getValue(String.class);
-                            //set the floor# as an integer
-                            hDesk.setFloorNumber(Integer.valueOf(floor));
+                    for (DataSnapshot ds : dataSnapshot.getChildren()) {
+                        HotDesk hDesk = new HotDesk();
+                        hDesk.setID(ds.getKey()); // set the ID
+                        // get the floor value as a string
+                        String floor = ds.child("floor").getValue(String.class);
+                        //set the floor# as an integer
+                        hDesk.setFloorNumber(Integer.valueOf(floor));
 
-                            // get the thumbnail value as a string
-                            String thumbnail = ds.child("picture").getValue(String.class);
-                            // set the thumbnail reference as an integer
-                            // solution to get from a string to an int from
-                            // https://stackoverflow.com/questions/4427608/android-getting-resource-id-from-string#19093447
-                            int thumbnailIdentifier = getResources()
-                                    .getIdentifier(thumbnail, "drawable", getPackageName());
-                            hDesk.setThumbnail(thumbnailIdentifier);
+                        // get the thumbnail value as a string
+                        String thumbnail = ds.child("picture").getValue(String.class);
+                        // set the thumbnail reference as an integer
+                        // solution to get from a string to an int from
+                        // https://stackoverflow.com/questions/4427608/android-getting-resource-id-from-string#19093447
+                        int thumbnailIdentifier = getResources()
+                                .getIdentifier(thumbnail, "drawable", getPackageName());
+                        hDesk.setThumbnail(thumbnailIdentifier);
 
-                            hDesk.setStatus("FREE");
+                        hDesk.setStatus("FREE");
 
-                            mHotDeskList.add(hDesk);
-                        }
+                        // add items to newlist
+                        newList.add(hDesk);
+
+
                     }
+                    // add new list
+                    mHotDeskList.addAll(newList);
+                    // notify adapter
+                    mAdapter.notifyDataSetChanged();
                 }
+            }
 
-                @Override
-                public void onCancelled(DatabaseError error) {
-                    // Failed to read value
-                    Log.w(TAG, "Failed to read value.", error.toException());
-                }
-            });
-           detachDatabaseReadListener(mHotDesksDatabaseReference, mHotdeskListener);
-    //    }
+            @Override
+            public void onCancelled(DatabaseError error) {
+                // Failed to read value
+                Log.w(TAG, "Failed to read value.", error.toException());
+            }
+        });
+
+    }
+
+    public void adapterClear() {
+
+
+        final int size = mHotDeskList.size();
+        mHotDeskList.clear();
+        mAdapter.notifyItemRangeRemoved(0, size);
     }
 
     /**
