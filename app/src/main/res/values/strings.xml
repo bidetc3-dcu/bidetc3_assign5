@@ -15,7 +15,7 @@
         completions."
     </string>
 
-    <!-- Strings comping from Friendly Chat, related to Login -->
+    <!-- Strings coming from Friendly Chat, related to Login -->
     <string name="welcome_msg">Welcome!</string>
     <string name="sign_out">Sign Out</string>
     <string name="contacts_permission_rationale">Access to account information is required to sign in.</string>
@@ -28,9 +28,10 @@
     <string name="fresh_config">Fresh Config</string>
     <string name="cause_crash">Cause Crash</string>
     <string name="banner_ad_unit_id" translatable="false">ca-app-pub-3940256099942544/6300978111</string>
+
+    <!-- Strings Related to Account Preference -->
     <string name="action_account">Account</string>
     <string name="title_activity_account">Account</string>
-    <string name="fake_date">April 10th, 2018</string>
     <string name="email_address">Email :</string>
     <string name="email_confirmation">Send Confirmation Email</string>
     <string name="account_settings">My Account Settings</string>
@@ -45,4 +46,11 @@
     <string name="preference_dialog_message_password">Enter Your Password</string>
     <string name="preference_dialog_title_edit_password">Edit Password</string>
     <string name="action_signout">Sign Out</string>
+
+    <!-- Alert message about internet connectivity -->
+    <string name="alert_no_internet">No Internet Connection</string>
+    <string name="alert_no_desk_selected">Please Select A Desk First</string>
+    <string name="confirmation_booking">Hotdesk Booking Confirmed</string>
+    <string name="booking_cancelled">Hotdesk Booking CANCELLED</string>
+
 </resources>

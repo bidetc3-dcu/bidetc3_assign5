@@ -1,10 +1,15 @@
 package com.example.android.liondesk;
 
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
+import android.support.design.widget.CoordinatorLayout;
 import android.support.design.widget.FloatingActionButton;
+import android.support.design.widget.Snackbar;
 import android.support.v4.app.DialogFragment;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.preference.PreferenceManager;
@@ -50,15 +55,18 @@ public class MainActivity extends AppCompatActivity {
     private static final int RC_SIGN_IN = 1;
     public static final String ANONYMOUS = "anonymous";
 
+
     private RecyclerView recyclerView;
     private HotDesksAdapter mAdapter;
     private List<HotDesk> mHotDeskList;
     private LinearLayoutManager mLayoutManager;
-    private String mUsername; // todo can I remove this?
+    private String mUsername;
     int VERTICAL = 1;
     private TextView mDateDisplay;
     private FloatingActionButton mFAB;
     private String mSelectedDeskID;
+    private CoordinatorLayout mCoordinatorLayout;
+    private String mAlertNoInternet, mAlertNoDeskSelected, mConfirmationBooking, mBookingCancelled;
 
     //Firebase instance variables
     private FirebaseAuth mFirebaseAuth;
@@ -94,8 +102,13 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         Toolbar myToolbar = findViewById(R.id.my_toolbar);
         setSupportActionBar(myToolbar);
+        mCoordinatorLayout = findViewById(R.id.coordinator_layout);
         mDateDisplay = findViewById(R.id.date_holder);
         mFAB = findViewById(R.id.fab);
+        mAlertNoInternet = this.getResources().getString(R.string.alert_no_internet);
+        mAlertNoDeskSelected = this.getResources().getString(R.string.alert_no_desk_selected);
+        mConfirmationBooking = this.getResources().getString(R.string.confirmation_booking);
+        mBookingCancelled = this.getResources().getString(R.string.booking_cancelled);
 
         // Get today's date
         // Code from https://stackoverflow.com/questions/8654990/how-can-i-get-current-date-in-android
@@ -123,14 +136,41 @@ public class MainActivity extends AppCompatActivity {
             // When the button is clicked, book the desk at the specified time for the current user
             @Override
             public void onClick(View view) {
-                //todo book the desk at the specified time for the current user
-                //get date and user,check they are not null
-                // if not null, and if online, send write request to database
-                mBookingsDatabaseReference.child(getDisplayedDate())
-                        .child(mSelectedDeskID).child(mUsername).setValue("true");
-                //do a code that sends a confirmation (intent with something?)
-                //so that the confirmation snackbar get it
-                //todo on results - display confirmation snackbar + update the list of desks displayed
+                // Display "No Internet Connection" if no internet connection
+                if (!checkIfConnectedToInternet()) {
+                    alertOfNoInternetConnection();
+                }
+                // Display an alert if no desk has been selected yet
+                else if (mSelectedDeskID == null) {
+                    alertOfNoDeskSelected();
+                }
+
+                else {
+                    //todo do I need to check that date and user and dbref are not null first?
+                    // record a booking in the database for the selected date, selected desk, and
+                    // current user
+                    mBookingsDatabaseReference.child(getDisplayedDate())
+                            .child(mSelectedDeskID).child(mUsername)
+                            // set a completion listener
+                            // code copied from
+                            // https://stackoverflow.com/questions/41403085/how-to-check-if-writing-task-was-successful-in-firebase
+                            .setValue("true", new DatabaseReference.CompletionListener() {
+                        // the completion listener will return a null error if the write action completes successfully
+                        public void onComplete(DatabaseError error, DatabaseReference ref) {
+                           // if the booking was recorded successfully
+                            if (error == null)
+                            // Display confirmation + option to CANCEL + refreshed list of desks
+                            {showConfirmationMessage(getDisplayedDate(), mSelectedDeskID, mUsername);}
+                            else
+                            {
+                                Toast.makeText(MainActivity.this, "ERROR - PLEASE TRY AGAIN", Toast.LENGTH_SHORT).show();
+                                Log.d(TAG,"ERROR - BOOKING NOT RECORDED");
+                                getHotDesks(); // refreshes the list of hotdesks
+                            }
+                        }
+                    });
+
+                }
             }
 
         });
@@ -140,7 +180,7 @@ public class MainActivity extends AppCompatActivity {
         mHotDeskList = new ArrayList<>();
         mAdapter = new HotDesksAdapter(this, mHotDeskList);
 
-        // Interface implementation.
+        // Interface implementation - Capture the desk ID when the desk card is clicked
         mAdapter.setOnRecyclerViewItemClickListener(new HotDesksAdapter.OnRecyclerViewItemClickListener() {
             @Override
             public void onItemClicked(String text) {
@@ -170,8 +210,6 @@ public class MainActivity extends AppCompatActivity {
 
                 } else {
                     // Not signed in, shows the Sign In UI
-                    Toast.makeText(MainActivity.this, "The user is NULL!)", Toast.LENGTH_SHORT).show();
-
                     startActivityForResult(
                             AuthUI.getInstance()
                                     .createSignInIntentBuilder()
@@ -188,6 +226,16 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // If we check if connected to the Internet and find out that we are not connected
+        if (!checkIfConnectedToInternet()) {
+            // display "No Internet Connection" in a snackbar
+            alertOfNoInternetConnection();
+        }
+    }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
@@ -228,8 +276,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
-    public void onDestroy()
-    {
+    public void onDestroy() {
         super.onDestroy();
         if (mAuthStateListener != null) {
             mFirebaseAuth.removeAuthStateListener(mAuthStateListener);
@@ -302,7 +349,8 @@ public class MainActivity extends AppCompatActivity {
     // Compose the list of hotdesks which are not booked on a given day and which is added to the adapter
     public void getHotDesks() {
         //adapterClear();
-
+        // Reset the variable that drives the highlight on desk card to -1 so no desk is highlighted
+        mAdapter.setLastCheckedPosition(-1);
         fillHotDeskList();
         // If there is a booking at the selected date (bookings/date)
         if (mBookingsDatabaseReference.child(mDateDisplay.getText().toString()) != null) {
@@ -401,12 +449,81 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
+    //todo am I using that? if not, remove
     public void adapterClear() {
 
 
         final int size = mHotDeskList.size();
         mHotDeskList.clear();
         mAdapter.notifyItemRangeRemoved(0, size);
+    }
+
+    // Display "No Internet Connection" alert in a snackbar
+    // All snackbar Code adapted from https://www.androidhive.info/2015/09/android-material-design-snackbar-example/
+    public void alertOfNoInternetConnection() {
+
+        Snackbar snackbar = Snackbar
+                .make(mCoordinatorLayout, mAlertNoInternet, Snackbar.LENGTH_LONG);
+
+        snackbar.show();
+    }
+
+    //Method to check if there is connection to the Internet or not
+    // copied from
+    // https://developer.android.com/training/monitoring-device-state/connectivity-monitoring.html
+
+    public boolean checkIfConnectedToInternet() {
+        ConnectivityManager cm =
+                (ConnectivityManager) MainActivity.this.getSystemService(Context.CONNECTIVITY_SERVICE);
+
+        NetworkInfo activeNetwork = cm.getActiveNetworkInfo();
+        boolean isConnected = activeNetwork != null &&
+                activeNetwork.isConnectedOrConnecting();
+        return isConnected;
+    }
+
+    // Display "Please select a desk" alert in a Toast
+    private void alertOfNoDeskSelected() {
+        Toast.makeText(MainActivity.this, mAlertNoDeskSelected, Toast.LENGTH_SHORT).show();
+
+    }
+
+    // Display a confirmation message once the booking has been done
+    private void showConfirmationMessage(String date, String deskID, String username) {
+        final String dateToCancel = date;
+        final String deskIDToCancel = deskID;
+        final String usernameToCancel = username;
+
+        Snackbar snackbar = Snackbar
+                .make(mCoordinatorLayout, mConfirmationBooking, Snackbar.LENGTH_LONG)
+                .setAction("CANCEL", new View.OnClickListener() { //todo avoid hard coded string "CANCEL"
+                    @Override
+                    public void onClick(View view) {
+                        // Delete the booking just made
+                        mBookingsDatabaseReference.child(dateToCancel)
+                                .child(deskIDToCancel).child(usernameToCancel).setValue(null);
+                        Snackbar snackbar1 = Snackbar.make(mCoordinatorLayout, mBookingCancelled, Snackbar.LENGTH_SHORT);
+                        snackbar1.show();
+                    }
+                });
+
+        // code adapted from
+        // https://stackoverflow.com/questions/30926380/how-can-i-be-notified-when-a-snackbar-has-dismissed-itself
+        snackbar.addCallback(new Snackbar.Callback() {
+
+            // When the snack bar does not show anymore,
+            // the highglight on the selected desk is removed
+            // and the list of desk displayed is cancelled
+            @Override
+            public void onDismissed(Snackbar snackbar, int event) {
+               // Refresh the list of hotdesks displayed
+                getHotDesks();
+            }
+        });
+
+        snackbar.show();
+
+
     }
 
     /**

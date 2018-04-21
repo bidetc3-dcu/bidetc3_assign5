@@ -122,4 +122,8 @@ public class HotDesksAdapter extends RecyclerView.Adapter<HotDesksAdapter.MyView
         return hotdeskList.size();
     }
 
+    public void setLastCheckedPosition(int i){
+        this.lastCheckedPosition = i;
+    }
+
 }
