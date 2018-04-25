@@ -52,5 +52,7 @@
     <string name="alert_no_desk_selected">Please Select A Desk First</string>
     <string name="confirmation_booking">Hotdesk Booking Confirmed</string>
     <string name="booking_cancelled">Hotdesk Booking CANCELLED</string>
+    <string name="calendar_insertion">Add To Calendar</string>
+    <string name="permissions_not_granted">As CALENDAR PERMISSION is denied, impossible to add booking to calendar.</string>
 
 </resources>

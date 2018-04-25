@@ -1,16 +1,23 @@
 package com.example.android.liondesk;
 
+import android.Manifest;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
+import android.database.Cursor;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.Bundle;
+import android.provider.CalendarContract;
 import android.support.annotation.NonNull;
 import android.support.design.widget.CoordinatorLayout;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
+import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.DialogFragment;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.preference.PreferenceManager;
 import android.support.v7.widget.DefaultItemAnimator;
@@ -35,13 +42,21 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
+import java.util.TimeZone;
+
+import static java.util.Calendar.MONTH;
+import static java.util.Calendar.YEAR;
+
+
 
 /*
 The Firebase code (Google authentification and realtime database)is adapted from the
@@ -50,10 +65,12 @@ Udacity course "Firebase in a weekend" [get real reference]
 
 public class MainActivity extends AppCompatActivity {
 
-    // Log TAG for debugging purposes TODO remove when testing is done
+    // Log TAG for debugging purposes
     private static final String TAG = MainActivity.class.getSimpleName();
     private static final int RC_SIGN_IN = 1;
     public static final String ANONYMOUS = "anonymous";
+    public static final int AVAILABILITY_FREE = 1;
+    private static final int MY_REQUEST_CALENDAR_PERMISSIONS = 1;
 
 
     private RecyclerView recyclerView;
@@ -61,23 +78,26 @@ public class MainActivity extends AppCompatActivity {
     private List<HotDesk> mHotDeskList;
     private LinearLayoutManager mLayoutManager;
     private String mUsername;
+    private String mOwner;
     int VERTICAL = 1;
     private TextView mDateDisplay;
     private FloatingActionButton mFAB;
     private String mSelectedDeskID;
     private CoordinatorLayout mCoordinatorLayout;
     private String mAlertNoInternet, mAlertNoDeskSelected, mConfirmationBooking, mBookingCancelled;
+    private boolean mIsCancelled; // Keep track whether the booking has been cancelled or not
+
 
     //Firebase instance variables
     private FirebaseAuth mFirebaseAuth;
     private FirebaseAuth.AuthStateListener mAuthStateListener;
 
     private FirebaseDatabase mFirebaseDatabase;
-    //only access a portion of the database, here "Bookings", "Hotdesks" and "Users"
+    //only access a portion of the database, here "Bookings" and "Hotdesks"
     private DatabaseReference mBookingsDatabaseReference;
-    private DatabaseReference mUsersDatabaseReference;  // you can remove this if you dont implement user booking screens
     private DatabaseReference mHotDesksDatabaseReference;
 
+    private static MyQueryHandler mHandler;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -91,8 +111,6 @@ public class MainActivity extends AppCompatActivity {
         mFirebaseDatabase = FirebaseDatabase.getInstance();
         // get the root node (getReference) then get the child "bookings" portion
         mBookingsDatabaseReference = mFirebaseDatabase.getReference().child("bookings");
-        // get the root node (getReference) then get the child "users" portion
-        mUsersDatabaseReference = mFirebaseDatabase.getReference().child("users");
         // get the root node (getReference) then get the child "hotdesks" portion
         mHotDesksDatabaseReference = mFirebaseDatabase.getReference().child("hotdesks");
         // Initialize Firebase Auth
@@ -109,6 +127,9 @@ public class MainActivity extends AppCompatActivity {
         mAlertNoDeskSelected = this.getResources().getString(R.string.alert_no_desk_selected);
         mConfirmationBooking = this.getResources().getString(R.string.confirmation_booking);
         mBookingCancelled = this.getResources().getString(R.string.booking_cancelled);
+        mIsCancelled = false;
+
+        mHandler = new MyQueryHandler(this.getContentResolver());
 
         // Get today's date
         // Code from https://stackoverflow.com/questions/8654990/how-can-i-get-current-date-in-android
@@ -143,10 +164,7 @@ public class MainActivity extends AppCompatActivity {
                 // Display an alert if no desk has been selected yet
                 else if (mSelectedDeskID == null) {
                     alertOfNoDeskSelected();
-                }
-
-                else {
-                    //todo do I need to check that date and user and dbref are not null first?
+                } else {
                     // record a booking in the database for the selected date, selected desk, and
                     // current user
                     mBookingsDatabaseReference.child(getDisplayedDate())
@@ -155,20 +173,20 @@ public class MainActivity extends AppCompatActivity {
                             // code copied from
                             // https://stackoverflow.com/questions/41403085/how-to-check-if-writing-task-was-successful-in-firebase
                             .setValue("true", new DatabaseReference.CompletionListener() {
-                        // the completion listener will return a null error if the write action completes successfully
-                        public void onComplete(DatabaseError error, DatabaseReference ref) {
-                           // if the booking was recorded successfully
-                            if (error == null)
-                            // Display confirmation + option to CANCEL + refreshed list of desks
-                            {showConfirmationMessage(getDisplayedDate(), mSelectedDeskID, mUsername);}
-                            else
-                            {
-                                Toast.makeText(MainActivity.this, "ERROR - PLEASE TRY AGAIN", Toast.LENGTH_SHORT).show();
-                                Log.d(TAG,"ERROR - BOOKING NOT RECORDED");
-                                getHotDesks(); // refreshes the list of hotdesks
-                            }
-                        }
-                    });
+                                // the completion listener will return a null error if the write action completes successfully
+                                public void onComplete(DatabaseError error, DatabaseReference ref) {
+                                    // if the booking was recorded successfully
+                                    if (error == null)
+                                    // Display confirmation + option to CANCEL + refreshed list of desks
+                                    {
+                                        showConfirmationMessage(getDisplayedDate(), mSelectedDeskID, mUsername);
+                                    } else {
+                                        Toast.makeText(MainActivity.this, "ERROR - PLEASE TRY AGAIN", Toast.LENGTH_SHORT).show();
+                                        Log.d(TAG, "ERROR - BOOKING NOT RECORDED");
+                                        getHotDesks(); // refreshes the list of hotdesks
+                                    }
+                                }
+                            });
 
                 }
             }
@@ -195,9 +213,6 @@ public class MainActivity extends AppCompatActivity {
         recyclerView.setItemAnimator(new DefaultItemAnimator());
         recyclerView.setAdapter(mAdapter);
 
-        // prepareDesks() – Adds dummy hotdesk data required for the recycler view.
-        //TODO remove once data is coming from database
-        //    prepareDesks();
 
         mAuthStateListener = new FirebaseAuth.AuthStateListener() {
             @Override
@@ -288,7 +303,6 @@ public class MainActivity extends AppCompatActivity {
     private void onSignedInInitialize(String username) {
 
         mUsername = username;
-        //todo add the code about attach Database readlistener - see udacity Saturday 35
         // If the user email is not null and the email preference is not already set
         if ((mFirebaseAuth.getCurrentUser().getEmail() != null)
                 && (readFromPreferences("email", null) == null)) {
@@ -300,17 +314,6 @@ public class MainActivity extends AppCompatActivity {
         getHotDesks();
     }
 
-
-    // code adapted from https://github.com/udacity/and-nd-firebase/compare/
-    // 1.04-firebase-auth-firebaseui-signin...1.05-firebase-auth-signin-signout-setup
-/*
-    private void detachDatabaseReadListener(DatabaseReference databaseReference, ValueEventListener databaseListener) {
-        if (databaseListener != null) {
-            databaseReference.removeEventListener(databaseListener);
-            databaseListener = null;
-        }
-    }
-*/
     // Create the date Picker fragment and display the Date Picker
     // code copied from https://developer.android.com/guide/topics/ui/controls/pickers.html
 
@@ -348,7 +351,6 @@ public class MainActivity extends AppCompatActivity {
 
     // Compose the list of hotdesks which are not booked on a given day and which is added to the adapter
     public void getHotDesks() {
-        //adapterClear();
         // Reset the variable that drives the highlight on desk card to -1 so no desk is highlighted
         mAdapter.setLastCheckedPosition(-1);
         fillHotDeskList();
@@ -388,6 +390,8 @@ public class MainActivity extends AppCompatActivity {
                         public void onCancelled(DatabaseError error) {
                             //   Failed to read value
                             Log.w(TAG, "Failed to read value.", error.toException());
+                            Toast.makeText(MainActivity.this, "reading ERROR", Toast.LENGTH_SHORT).show();
+
                         }
                     });
         }
@@ -430,8 +434,6 @@ public class MainActivity extends AppCompatActivity {
 
                         // add items to newlist
                         newList.add(hDesk);
-
-
                     }
                     // add new list
                     mHotDeskList.addAll(newList);
@@ -447,15 +449,6 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-    }
-
-    //todo am I using that? if not, remove
-    public void adapterClear() {
-
-
-        final int size = mHotDeskList.size();
-        mHotDeskList.clear();
-        mAdapter.notifyItemRangeRemoved(0, size);
     }
 
     // Display "No Internet Connection" alert in a snackbar
@@ -485,7 +478,6 @@ public class MainActivity extends AppCompatActivity {
     // Display "Please select a desk" alert in a Toast
     private void alertOfNoDeskSelected() {
         Toast.makeText(MainActivity.this, mAlertNoDeskSelected, Toast.LENGTH_SHORT).show();
-
     }
 
     // Display a confirmation message once the booking has been done
@@ -496,7 +488,7 @@ public class MainActivity extends AppCompatActivity {
 
         Snackbar snackbar = Snackbar
                 .make(mCoordinatorLayout, mConfirmationBooking, Snackbar.LENGTH_LONG)
-                .setAction("CANCEL", new View.OnClickListener() { //todo avoid hard coded string "CANCEL"
+                .setAction("CANCEL", new View.OnClickListener() {
                     @Override
                     public void onClick(View view) {
                         // Delete the booking just made
@@ -504,6 +496,7 @@ public class MainActivity extends AppCompatActivity {
                                 .child(deskIDToCancel).child(usernameToCancel).setValue(null);
                         Snackbar snackbar1 = Snackbar.make(mCoordinatorLayout, mBookingCancelled, Snackbar.LENGTH_SHORT);
                         snackbar1.show();
+                        mIsCancelled = true;
                     }
                 });
 
@@ -512,74 +505,203 @@ public class MainActivity extends AppCompatActivity {
         snackbar.addCallback(new Snackbar.Callback() {
 
             // When the snack bar does not show anymore,
-            // the highglight on the selected desk is removed
-            // and the list of desk displayed is cancelled
+            // the highglight on the selected desk is removed,
+            // the list of desk displayed is cancelled,
+            // and if the booking has not been cancelled,
+            // the confirmation by email or addition to user's calendar are applied, if selected in preferences
             @Override
             public void onDismissed(Snackbar snackbar, int event) {
-               // Refresh the list of hotdesks displayed
+                // Refresh the list of hotdesks displayed and remove the highlight on the selected desk
                 getHotDesks();
+                if (!mIsCancelled) // If the booking was not cancelled
+                {
+                    // If the user ticked the option to receive a confirmation email
+                    if (getEmailConfirmationPreference()) {
+                        // Send confirmation email
+                        sendConfirmationEmail();
+                    }
+
+                    // If the user selected the option to get the booking inserted in their calendar
+                    if (getCalendarInsertionPreference()) {
+                        // Start the process to Insert the booking as an event in the user's calendar
+                        CheckPermissionInsertInUsersCalendar();
+                    }
+                }
             }
         });
-
         snackbar.show();
-
-
     }
 
-    /**
-     * Adding a few hotdesks for testing
-     * TODO remove once data is coming from database
-     */
- /*   private void prepareDesks() {
-        int[] pictures = new int[]{
-                R.drawable.hotdesk1,
-                R.drawable.hotdesk2_bigger,
-                R.drawable.hotdesk3_round,
-                R.drawable.hotdesk4,
-                R.drawable.hotdesk5,
-                R.drawable.hotdesk6,
-                R.drawable.hotdesk7,
-                R.drawable.hotdesk8,
-                R.drawable.hotdesk9,
-                R.drawable.hotdesk10,
-                R.drawable.hotdesk11};
 
-        HotDesk h = new HotDesk("GA1", 0, "FREE", pictures[0]);
-        hotDeskList.add(h);
-
-        h = new HotDesk("GA2", 0, "FREE", pictures[1]);
-        hotDeskList.add(h);
-
-        h = new HotDesk("GB1", 0, "FREE", pictures[2]);
-        hotDeskList.add(h);
-
-        h = new HotDesk("GB2", 0, "FREE", pictures[3]);
-        hotDeskList.add(h);
-
-        h = new HotDesk("GB3", 0, "FREE", pictures[4]);
-        hotDeskList.add(h);
-
-        h = new HotDesk("GC1", 0, "FREE", pictures[5]);
-        hotDeskList.add(h);
-
-        h = new HotDesk("3A1", 3, "FREE", pictures[6]);
-        hotDeskList.add(h);
-
-        h = new HotDesk("3B1", 3, "FREE", pictures[7]);
-        hotDeskList.add(h);
-
-        h = new HotDesk("3B2", 3, "FREE", pictures[8]);
-        hotDeskList.add(h);
-
-        h = new HotDesk("4A1", 4, "FREE", pictures[9]);
-        hotDeskList.add(h);
-
-        h = new HotDesk("4A2", 4, "FREE", pictures[10]);
-        hotDeskList.add(h);
-
-        mAdapter.notifyDataSetChanged();
+    // Get the email confirmation preference (true if ticked, false if unticked)
+    public boolean getEmailConfirmationPreference() {
+        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(getBaseContext());
+        boolean emailConfirmation = preferences.getBoolean("checkbox_email_confirmation", true);
+        Log.d(TAG, "email notif = " + emailConfirmation);
+        return emailConfirmation;
     }
-    */
+
+    // Get the calendar insertion preference (true if ticked, false if unticked)
+    public boolean getCalendarInsertionPreference() {
+        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(getBaseContext());
+        boolean calendarInsertion = preferences.getBoolean("checkbox_calendar_insertion", true);
+        Log.d(TAG, "calendar insert = " + calendarInsertion);
+        return calendarInsertion;
+    }
+
+    // Get the preferred email address stored in the Account information
+    public String getEmailPreference() {
+        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(getBaseContext());
+        String emailAddress = preferences.getString("email", "");
+        Log.d(TAG, "email = " + emailAddress);
+        return emailAddress;
+    }
+
+    // Send a confirmation email to the current user's email
+    public void sendConfirmationEmail() {
+        //todo Build an intent to send the email confirmation - for version 2
+        String email = getEmailPreference();
+    }
+
+    // Check for Permission to write to Calendar
+    //code copied from https://developer.android.com/training/permissions/requesting.html#java
+    private void CheckPermissionInsertInUsersCalendar() {
+        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.READ_CALENDAR)
+                != PackageManager.PERMISSION_GRANTED
+                ||
+                ContextCompat.checkSelfPermission(this, android.Manifest.permission.WRITE_CALENDAR)
+                        != PackageManager.PERMISSION_GRANTED) {
+            // Permission is not granted
+            ActivityCompat.requestPermissions(this,
+                    new String[]{
+                            android.Manifest.permission.WRITE_CALENDAR,
+                            Manifest.permission.READ_CALENDAR},
+                    MY_REQUEST_CALENDAR_PERMISSIONS);
+        } else {
+            insertInUsersCalendar();
+        }
+    }
+
+    // code adapted from
+    // http://codetheory.in/using-asyncqueryhandler-to-access-content-providers-asynchronously-in-android/
+
+    public void insertInUsersCalendar() {
+
+        // Get the primary calendar ID
+        long calendarID = getCalendarID();
+
+        // Gather the event data
+        long startMillis = 0;
+        long endMillis = 0;
+        String date = getDisplayedDate();
+        SimpleDateFormat sdf = new SimpleDateFormat("MMM dd, yyyy", Locale.ENGLISH);
+
+        Calendar selectedDay = Calendar.getInstance();
+        try {
+            selectedDay.setTime(sdf.parse(date));
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
+        Calendar beginTime = Calendar.getInstance();
+        beginTime.set(selectedDay.get(YEAR), selectedDay.get(MONTH), selectedDay.get(Calendar.DAY_OF_MONTH), 8, 30);
+        startMillis = beginTime.getTimeInMillis();
+        Calendar endTime = Calendar.getInstance();
+        endTime.set(selectedDay.get(YEAR), selectedDay.get(MONTH), selectedDay.get(Calendar.DAY_OF_MONTH), 18, 00);
+        endMillis = endTime.getTimeInMillis();
+        // code from https://stackoverflow.com/questions/11934465/eventtimezone-value
+        TimeZone tz = TimeZone.getDefault();
+        String timeZone = tz.getID();
+
+        ContentValues values = new ContentValues();
+        values.put(CalendarContract.Events.DTSTART, startMillis);
+        values.put(CalendarContract.Events.DTEND, endMillis);
+        values.put(CalendarContract.Events.TITLE, "WORKING FROM THE OFFICE");
+        values.put(CalendarContract.Events.EVENT_LOCATION, "LIONBRIDGE DESK # " + mSelectedDeskID);
+        values.put(CalendarContract.Events.ALL_DAY, 1);
+        values.put(CalendarContract.Events.AVAILABILITY, AVAILABILITY_FREE);
+        values.put(CalendarContract.Events.CALENDAR_ID, calendarID);
+        values.put(CalendarContract.Events.EVENT_TIMEZONE, timeZone);
+
+        //Perform the insert
+        mHandler.startInsert(1, null, CalendarContract.Events.CONTENT_URI, values);
+    }
+
+    // Get the primary calendar ID of the first Google account detected for the user
+    // Code from
+    // https://stackoverflow.com/questions/16242472/retrieve-the-default-calendar-id-in-android
+    public long getCalendarID() {
+        // the calendar ID that will be returned
+        long calendarID = 1;    //value instanciated with dummy value
+        //projection
+        String[] projection = {
+                CalendarContract.Calendars._ID
+        };
+
+        // selection, Defines WHERE clause columns and placeholders
+        String selection = CalendarContract.Calendars.VISIBLE + " = 1 AND "
+                + CalendarContract.Calendars.IS_PRIMARY + "= 1 AND "
+                + CalendarContract.Calendars.OWNER_ACCOUNT + "=  \"" + mFirebaseAuth.getCurrentUser().getEmail() + "\"";
+
+        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.READ_CALENDAR)
+                == PackageManager.PERMISSION_GRANTED
+                &&
+                ContextCompat.checkSelfPermission(this, android.Manifest.permission.WRITE_CALENDAR)
+                        == PackageManager.PERMISSION_GRANTED) {
+            Cursor cursor = getContentResolver().query(
+                    CalendarContract.Calendars.CONTENT_URI,
+                    projection,
+                    selection,
+                    null,
+                    CalendarContract.Calendars._ID + " ASC");
+
+            int idIndex = cursor.getColumnIndex(CalendarContract.Calendars._ID);
+
+            if (cursor == null) {
+                // Some providers return null if an error occurs whereas others throw an exception
+                Toast.makeText(MainActivity.this, "Cursor is null", Toast.LENGTH_SHORT).show();
+
+            } else if (cursor.getCount() < 1) {
+                // No matches found
+                Toast.makeText(MainActivity.this, "No Calendar found", Toast.LENGTH_SHORT).show();
+
+            } else {
+                // Return the primary calendar ID of the user currently logged in
+                while (cursor.moveToNext()) {
+                    int i = cursor.getInt(idIndex);
+                    Log.d(TAG, "idIndexInt: " + i);
+                    calendarID = (long) i;
+                }
+            }
+            cursor.close();
+
+        } else {
+            CheckPermissionInsertInUsersCalendar();
+        }
+        return calendarID;
+    }
+
+    // adapted from https://github.com/googlesamples/android-RuntimePermissions/blob/master/
+    // Application/src/main/java/com/example/android/system/runtimepermissions/MainActivity.java
+    @Override
+    public void onRequestPermissionsResult(int requestCode,
+                                           String permissions[], int[] grantResults) {
+
+        // We have requested multiple permissions for calendar, so all of them need to be checked.
+        if (requestCode == MY_REQUEST_CALENDAR_PERMISSIONS) {
+            if (com.example.android.liondesk.PermissionUtil.verifyPermissions(grantResults)) {
+                // All required permissions have been granted, insert the booking in the calendar
+                insertInUsersCalendar();
+
+            } else {
+                Log.i(TAG, "Contacts permissions were NOT granted.");
+                Snackbar.make(mCoordinatorLayout, R.string.permissions_not_granted,
+                        Snackbar.LENGTH_SHORT)
+                        .show();
+            }
+        } else {
+            super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        }
+    }
+
+
 }
-
-

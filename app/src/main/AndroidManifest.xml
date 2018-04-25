@@ -7,14 +7,18 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.example.android.liondesk">
 
-    <!-- To auto-complete the email text field in the login form with the user's emails -->
+    <!-- To auto-complete the email text field in the login form with the user's emails
     <uses-permission android:name="android.permission.GET_ACCOUNTS" />
     <uses-permission android:name="android.permission.READ_PROFILE" />
-    <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <uses-permission android:name="android.permission.READ_CONTACTS" />-->
     <!-- To connect to the internet -->
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- To check the state of the connection to the Internet -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- To check the primary calendar of the user and add booking to the calendar -->
+    <uses-permission android:name="android.permission.WRITE_CALENDAR" />
+    <uses-permission android:name="android.permission.READ_CALENDAR" />
+
 
     <application
         android:allowBackup="true"
@@ -23,28 +27,28 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme.NoActionBar">
-        <activity android:name=".MainActivity">
-            <intent-filter>
+
+        <activity android:name=".MainActivity"
+            android:screenOrientation="portrait">
+                <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
         <activity
-            android:name=".SignInActivity"
-            android:theme="@style/AppTheme.NoActionBar" />
-
-        <activity
             android:name=".AccountActivity"
             android:label="@string/title_activity_account"
             android:theme="@style/AppTheme.NoActionBar"
-            android:parentActivityName="com.example.android.liondesk.MainActivity">
+            android:parentActivityName="com.example.android.liondesk.MainActivity"
+            android:screenOrientation="portrait">
 
             <!-- Parent activity meta-data to support 4.0 and lower -->
             <meta-data
                 android:name="android.support.PARENT_ACTIVITY"
                 android:value="com.example.android.liondesk.MainActivity" />
         </activity>
+
     </application>
 
 </manifest>

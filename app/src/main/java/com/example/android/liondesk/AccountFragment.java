@@ -68,7 +68,7 @@ public class AccountFragment extends PreferenceFragmentCompat implements
         Preference pref = findPreference(key);
         if (pref instanceof EditTextPreference) {
             EditTextPreference editTextPref = (EditTextPreference) pref;
-            if (!pref.getKey().equalsIgnoreCase("pass")) {
+            if (!pref.getKey().equalsIgnoreCase("email")) {
 
                 pref.setSummary(editTextPref.getText());
             }

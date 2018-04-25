@@ -29,8 +29,12 @@
                 android:title="@string/title_password" />
 
             <CheckBoxPreference
-                android:key="checkbox_preference"
+                android:key="checkbox_email_confirmation"
                 android:title="@string/email_confirmation" />
+
+            <CheckBoxPreference
+                android:key="checkbox_calendar_insertion"
+                android:title="@string/calendar_insertion" />
 
         </PreferenceCategory>
 

@@ -21,7 +21,7 @@ import java.util.Calendar;
 public class DatePickerFragment extends DialogFragment
         implements DatePickerDialog.OnDateSetListener {
 
-    // Log TAG for debugging purposes TODO remove when testing is done
+    // Log TAG for debugging purposes
     private static final String TAG = DatePickerFragment.class.getSimpleName();
 
     @Override
@@ -43,10 +43,8 @@ public class DatePickerFragment extends DialogFragment
         cal.set(year, month, day);
         CharSequence output = DateFormat.format("MMM dd, yyyy", cal);
       ((TextView) getActivity().findViewById(R.id.date_holder)).setText(output);
-
-        Toast.makeText(getContext(), "The date has been picked by the user.",
-                Toast.LENGTH_SHORT).show();
-        //todo send a query to database to check desk availability on that date
+        Log.d(TAG, "The date has been picked by the user.");
+        // Send a query to database to check desk availability on that date
         ((MainActivity)getActivity()).getHotDesks();
     }
 }
